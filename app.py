@@ -121,7 +121,7 @@ def analyse():
 
     def generate():
         with client.messages.stream(
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-5",
             max_tokens=1500,
             system=system,
             messages=[{"role": "user", "content": prompt}]
