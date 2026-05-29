@@ -1,0 +1,113 @@
+import io
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import mm
+from reportlab.platypus import (
+    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
+    PageBreak, HRFlowable
+)
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
+
+GREEN_DARK  = colors.HexColor("#085041")
+GREEN_MID   = colors.HexColor("#1D9E75")
+GREEN_LIGHT = colors.HexColor("#E1F5EE")
+AMBER_DARK  = colors.HexColor("#633806")
+AMBER_MID   = colors.HexColor("#BA7517")
+AMBER_LIGHT = colors.HexColor("#FAEEDA")
+PURPLE_DARK = colors.HexColor("#3C3489")
+PURPLE_LT   = colors.HexColor("#EEEDFE")
+WHITE       = colors.white
+BLACK       = colors.HexColor("#1a1a1a")
+GRAY_MID    = colors.HexColor("#444441")
+
+def S(name, **kw):
+    return ParagraphStyle(name, **kw)
+
+title_st  = S("T",  fontSize=20, textColor=WHITE, alignment=TA_CENTER, fontName="Helvetica-Bold")
+sub_st    = S("Su", fontSize=10, textColor=GREEN_LIGHT, alignment=TA_CENTER, fontName="Helvetica")
+wk_st     = S("W",  fontSize=13, textColor=GREEN_DARK, fontName="Helvetica-Bold", spaceBefore=10, spaceAfter=4)
+day_st    = S("D",  fontSize=9,  textColor=WHITE, fontName="Helvetica-Bold")
+meal_lbl  = S("ML", fontSize=8,  textColor=PURPLE_DARK, fontName="Helvetica-Bold")
+meal_tx   = S("MT", fontSize=9,  textColor=BLACK, fontName="Helvetica", leading=12)
+ins_st    = S("I",  fontSize=9,  textColor=GREEN_DARK, fontName="Helvetica", leading=13, spaceBefore=3)
+note_st   = S("N",  fontSize=8,  textColor=AMBER_DARK, fontName="Helvetica-Oblique", spaceAfter=4)
+
+MEAL_KEYS = [("breakfast","Breakfast"),("lunch","Lunch"),("snack","Snack"),("dinner","Dinner")]
+DAY_COLORS = {"veg": GREEN_MID, "nonveg": colors.HexColor("#D85A30"), "sunday_special": AMBER_MID}
+
+def build_pdf(plan: dict, people: int, preference: str, budget: float, restrictions: list) -> bytes:
+    buf = io.BytesIO()
+    W_PAGE = A4[0] - 30*mm
+
+    doc = SimpleDocTemplate(buf, pagesize=A4,
+                            leftMargin=15*mm, rightMargin=15*mm,
+                            topMargin=12*mm, bottomMargin=12*mm)
+    story = []
+
+    # Header
+    hdr = Table([
+        [Paragraph("🥗 Dietly — Monthly Meal Plan", title_st)],
+        [Paragraph(f"{people} people  |  {preference.title()} diet  |  Budget: £{budget:.0f}/month", sub_st)],
+        [Paragraph("  •  ".join(restrictions) if restrictions else "No special restrictions", sub_st)],
+    ], colWidths=[W_PAGE])
+    hdr.setStyle(TableStyle([
+        ("BACKGROUND",(0,0),(-1,-1),GREEN_DARK),
+        ("ROWPADDING",(0,0),(-1,-1),7),
+        ("TOPPADDING",(0,0),(-1,0),14),
+        ("BOTTOMPADDING",(0,-1),(-1,-1),14),
+    ]))
+    story.append(hdr)
+    story.append(Spacer(1,10))
+
+    # Weeks
+    for wk_key in ["week1","week2","week3","week4"]:
+        wk_num = wk_key[-1]
+        story.append(Paragraph(f"Week {wk_num}", wk_st))
+        days = plan.get("plan", plan).get(wk_key, [])
+        for day in days:
+            dtype = day.get("type","veg")
+            bg = DAY_COLORS.get(dtype, GREEN_MID)
+            label = "Strictly Veg" if dtype=="veg" else ("Non-veg" if dtype=="nonveg" else "Sunday Special ★")
+            dh = Table([[Paragraph(f"{day.get('day','?')}   {label}   Est. £{day.get('estimated_cost',0):.2f}", day_st)]], colWidths=[W_PAGE])
+            dh.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,-1),bg),("ROWPADDING",(0,0),(-1,-1),5)]))
+            story.append(dh)
+            rows = []
+            for i in range(0,4,2):
+                row = []
+                for j in range(2):
+                    if i+j < len(MEAL_KEYS):
+                        k,lbl = MEAL_KEYS[i+j]
+                        cell = [Paragraph(lbl, meal_lbl), Paragraph(day.get(k,"—"), meal_tx)]
+                    else:
+                        cell = [Paragraph("",meal_tx)]
+                    row.append(cell)
+                rows.append(row)
+            mt = Table(rows, colWidths=[W_PAGE/2]*2)
+            mt.setStyle(TableStyle([
+                ("VALIGN",(0,0),(-1,-1),"TOP"),("ROWPADDING",(0,0),(-1,-1),4),
+                ("LINEBEFORE",(1,0),(1,-1),0.3,colors.HexColor("#cccccc")),
+                ("LINEBELOW",(0,0),(-1,-2),0.3,colors.HexColor("#dddddd")),
+                ("BACKGROUND",(0,0),(-1,0),GREEN_LIGHT),("BACKGROUND",(0,1),(-1,1),WHITE),
+            ]))
+            story.append(mt)
+            story.append(Spacer(1,4))
+        if wk_key != "week4":
+            story.append(PageBreak())
+
+    # AI Insights
+    insights = plan.get("insights", [])
+    if insights:
+        story.append(PageBreak())
+        story.append(Paragraph("AI-Powered Insights", wk_st))
+        for ins in insights:
+            story.append(Paragraph(f"• {ins}", ins_st))
+            story.append(Spacer(1,3))
+
+    story.append(Spacer(1,8))
+    story.append(HRFlowable(width=W_PAGE, thickness=0.5, color=GREEN_LIGHT))
+    story.append(Spacer(1,4))
+    story.append(Paragraph("Generated by Dietly  |  Powered by Anthropic Claude AI  |  dietly.app", note_st))
+
+    doc.build(story)
+    return buf.getvalue()

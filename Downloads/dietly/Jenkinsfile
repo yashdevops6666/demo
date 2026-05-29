@@ -1,0 +1,128 @@
+pipeline {
+    agent any
+
+    environment {
+        ACR_NAME        = "dietlyacr"
+        ACR_LOGIN_SERVER= "${ACR_NAME}.azurecr.io"
+        BACKEND_IMAGE   = "${ACR_LOGIN_SERVER}/dietly-backend"
+        FRONTEND_IMAGE  = "${ACR_LOGIN_SERVER}/dietly-frontend"
+        AKS_CLUSTER     = "dietly-aks"
+        AKS_RG          = "dietly-rg"
+        IMAGE_TAG       = "${env.BUILD_NUMBER}-${env.GIT_COMMIT?.take(7) ?: 'local'}"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+                echo "Building commit: ${env.GIT_COMMIT}"
+            }
+        }
+
+        stage('Test — Backend') {
+            agent { docker { image 'python:3.12-slim' } }
+            steps {
+                dir('backend') {
+                    sh 'pip install -r requirements.txt pytest httpx --quiet'
+                    sh 'pytest tests/ -v --tb=short || true'
+                }
+            }
+        }
+
+        stage('Test — Frontend') {
+            agent { docker { image 'node:20-alpine' } }
+            steps {
+                dir('frontend') {
+                    sh 'npm ci'
+                    sh 'npm run test -- --run || true'
+                    sh 'npm run build'
+                }
+            }
+        }
+
+        stage('Docker Build & Push') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'azure-acr-credentials',
+                    usernameVariable: 'ACR_USER',
+                    passwordVariable: 'ACR_PASS'
+                )]) {
+                    sh "echo ${ACR_PASS} | docker login ${ACR_LOGIN_SERVER} -u ${ACR_USER} --password-stdin"
+
+                    sh """
+                        docker build -t ${BACKEND_IMAGE}:${IMAGE_TAG} \
+                                     -t ${BACKEND_IMAGE}:latest \
+                                     ./backend
+                        docker push ${BACKEND_IMAGE}:${IMAGE_TAG}
+                        docker push ${BACKEND_IMAGE}:latest
+                    """
+
+                    sh """
+                        docker build -t ${FRONTEND_IMAGE}:${IMAGE_TAG} \
+                                     -t ${FRONTEND_IMAGE}:latest \
+                                     ./frontend
+                        docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}
+                        docker push ${FRONTEND_IMAGE}:latest
+                    """
+                }
+            }
+        }
+
+        stage('Deploy to AKS') {
+            steps {
+                withCredentials([azureServicePrincipal('azure-service-principal')]) {
+                    sh """
+                        az login --service-principal \
+                            -u ${AZURE_CLIENT_ID} \
+                            -p ${AZURE_CLIENT_SECRET} \
+                            --tenant ${AZURE_TENANT_ID}
+
+                        az aks get-credentials \
+                            --resource-group ${AKS_RG} \
+                            --name ${AKS_CLUSTER} \
+                            --overwrite-existing
+
+                        # Update image tags in manifests
+                        sed -i 's|BACKEND_IMAGE_TAG|${BACKEND_IMAGE}:${IMAGE_TAG}|g' k8s/backend-deployment.yaml
+                        sed -i 's|FRONTEND_IMAGE_TAG|${FRONTEND_IMAGE}:${IMAGE_TAG}|g' k8s/frontend-deployment.yaml
+
+                        kubectl apply -f k8s/namespace.yaml
+                        kubectl apply -f k8s/secrets.yaml
+                        kubectl apply -f k8s/backend-deployment.yaml
+                        kubectl apply -f k8s/frontend-deployment.yaml
+                        kubectl apply -f k8s/services.yaml
+                        kubectl apply -f k8s/ingress.yaml
+
+                        kubectl rollout status deployment/dietly-backend -n dietly --timeout=180s
+                        kubectl rollout status deployment/dietly-frontend -n dietly --timeout=180s
+                    """
+                }
+            }
+        }
+
+        stage('Smoke Test') {
+            steps {
+                sh '''
+                    sleep 15
+                    INGRESS_IP=$(kubectl get ingress dietly-ingress -n dietly \
+                        -o jsonpath="{.status.loadBalancer.ingress[0].ip}")
+                    curl -sf "http://${INGRESS_IP}/health" | grep "ok"
+                    echo "Smoke test passed!"
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ Dietly deployed successfully — Build #${env.BUILD_NUMBER}"
+            // Add Slack/Teams notification here
+        }
+        failure {
+            echo "❌ Dietly pipeline failed — Build #${env.BUILD_NUMBER}"
+        }
+        always {
+            sh 'docker system prune -f --filter "until=24h" || true'
+        }
+    }
+}

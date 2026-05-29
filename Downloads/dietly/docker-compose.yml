@@ -1,0 +1,46 @@
+version: "3.9"
+
+services:
+  backend:
+    build: ./backend
+    container_name: dietly-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - DATABASE_URL=postgresql://dietly:dietly@db:5432/dietly
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - ./backend:/app
+
+  frontend:
+    build: ./frontend
+    container_name: dietly-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    container_name: dietly-db
+    environment:
+      POSTGRES_DB: dietly
+      POSTGRES_USER: dietly
+      POSTGRES_PASSWORD: dietly
+    ports:
+      - "5432:5432"
+    volumes:
+      - dietly_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dietly"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  dietly_pgdata:
