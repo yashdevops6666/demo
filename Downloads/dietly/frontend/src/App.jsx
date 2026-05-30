@@ -50,31 +50,51 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="relative min-h-screen">
       <Header />
-      <main className="max-w-5xl mx-auto px-4 py-8">
-        <MealPlanForm onGenerate={handleGenerate} loading={loading} />
-        {error && (
-          <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-            {error}
+      <main className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 py-10">
+
+        {!plan && (
+          <div className="text-center mb-12 fade-up">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 glass rounded-full mb-5 border border-gold/20">
+              <span className="text-xs text-gold/80 font-medium tracking-wide uppercase">AI-Powered · 30-Day Plans</span>
+            </div>
+            <h1 className="font-display text-5xl sm:text-6xl font-bold mb-4 leading-tight">
+              <span className="gold-text">Personalised</span><br />
+              <span className="text-white/90">Indian Meal Plans</span>
+            </h1>
+            <p className="text-white/40 text-base max-w-md mx-auto leading-relaxed">
+              AI-curated monthly meal plans tailored to your budget, family size, and dietary needs — using UK supermarket ingredients.
+            </p>
           </div>
         )}
+
+        <MealPlanForm onGenerate={handleGenerate} loading={loading} hasPlan={!!plan} />
+
+        {error && (
+          <div className="mt-4 p-4 glass border border-red-500/20 rounded-xl text-red-300 text-sm fade-up">
+            ⚠ {error}
+          </div>
+        )}
+
         {plan && (
-          <>
-            <InsightsPanel insights={plan.insights} costs={{
-              weekly: plan.estimated_weekly_cost,
-              monthly: plan.total_monthly_cost,
-            }} />
-            <div className="mt-4 flex justify-end">
+          <div className="fade-up">
+            <InsightsPanel
+              insights={plan.insights}
+              costs={{ weekly: plan.estimated_weekly_cost, monthly: plan.total_monthly_cost }}
+              people={plan.formData.people}
+              preference={plan.formData.preference}
+            />
+            <div className="mt-6 flex justify-end">
               <button
                 onClick={handleDownloadPDF}
-                className="flex items-center gap-2 px-6 py-3 bg-green-700 text-white rounded-lg font-medium hover:bg-green-800 transition"
+                className="flex items-center gap-2.5 px-5 py-2.5 glass border border-gold/30 text-gold/90 rounded-xl text-sm font-medium hover:bg-gold/10 hover:border-gold/50 transition-all duration-200"
               >
-                ⬇ Download PDF — Full Month Plan
+                ↓ Download PDF
               </button>
             </div>
             <MealPlanDisplay plan={plan.plan} />
-          </>
+          </div>
         )}
       </main>
     </div>
