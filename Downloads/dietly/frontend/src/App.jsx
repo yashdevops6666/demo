@@ -73,6 +73,9 @@ export default function App() {
             <p className="text-base max-w-md mx-auto leading-relaxed" style={{ color: "var(--text-3)" }}>
               AI-curated monthly meal plans tailored to your budget, family size, and dietary needs — using UK supermarket ingredients.
             </p>
+            <p className="mt-4 text-xs tracking-widest uppercase" style={{ color: "var(--text-3)" }}>
+              crafted by <span className="gold-text font-semibold not-italic">Yash</span>
+            </p>
           </div>
         )}
 
