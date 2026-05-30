@@ -10,16 +10,24 @@ export default function App() {
   const [plan, setPlan] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [rateLimited, setRateLimited] = useState(false);
 
   const handleGenerate = async (formData) => {
     setLoading(true);
     setError("");
+    setRateLimited(false);
     try {
       const res = await fetch("/api/meals/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
+      if (res.status === 429) {
+        const data = await res.json();
+        setRateLimited(true);
+        setError(data.detail);
+        return;
+      }
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
       setPlan({ ...data, formData });
@@ -82,8 +90,24 @@ export default function App() {
         <MealPlanForm onGenerate={handleGenerate} loading={loading} />
 
         {error && (
-          <div className="mt-4 p-4 glass rounded-xl text-sm fade-up" style={{ borderColor: "rgba(239,68,68,0.25)", color: "#fca5a5" }}>
-            ⚠ {error}
+          <div
+            className="mt-4 p-5 glass rounded-xl text-sm fade-up"
+            style={{
+              borderColor: rateLimited ? "rgba(212,168,83,0.3)" : "rgba(239,68,68,0.25)",
+              color: rateLimited ? "#f0c978" : "#fca5a5",
+            }}
+          >
+            {rateLimited ? (
+              <div className="flex items-start gap-3">
+                <span className="text-2xl">🌅</span>
+                <div>
+                  <p className="font-semibold mb-1" style={{ color: "#f0c978" }}>Daily limit reached</p>
+                  <p style={{ color: "var(--text-2)" }}>{error}</p>
+                </div>
+              </div>
+            ) : (
+              <>⚠ {error}</>
+            )}
           </div>
         )}
 
