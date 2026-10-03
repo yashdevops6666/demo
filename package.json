@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Reads the machine-readable zone of a passport photo in the browser and renders a specimen-marked summary card.",
   "scripts": {
-    "start": "python3 -m http.server 8080",
+    "start": "node server.js",
     "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {

@@ -20,12 +20,19 @@ The sample in `sample/` is a made-up passport for the fictional state of Utopia 
 It is a static site with no build step. Serve the folder with any web server:
 
 ```
-npm start        # python3 -m http.server 8080
+npm start
 ```
 
 Then open http://localhost:8080 and choose an image, or press "Try the specimen passport".
 
-To publish it, enable GitHub Pages for the repository (Settings → Pages → Deploy from a branch → `main`, `/root`).
+## Deploy to Railway
+
+1. Push this project to GitHub.
+2. Create a new Railway project and deploy the repo.
+3. Railway will run `npm start` automatically.
+4. The app listens on the `PORT` environment variable provided by Railway.
+
+This project does not need a build step; the Node server in `server.js` serves the static files in the browser.
 
 ## How it works
 
