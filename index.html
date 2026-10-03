@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Passport reader</title>
+  <meta name="description" content="Reads the machine-readable zone of a passport photo in your browser and lays the details out on a specimen-marked summary card.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='5' fill='%231F4D3F'/%3E%3Cpath d='M10 9l-5 7 5 7M19 9l-5 7 5 7M28 9l-5 7 5 7' fill='none' stroke='%23E3EFE8' stroke-width='2.6'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="masthead">
+    <h1>Passport reader</h1>
+    <p>Reads the two machine-readable lines on a passport photo page, checks them, and lays the details out on a specimen card. Everything runs in this browser tab; the image is never uploaded.</p>
+  </header>
+
+  <section class="mrz" aria-labelledby="mrzHeading">
+    <div class="mrz-inner">
+      <h2 id="mrzHeading">Machine-readable zone</h2>
+      <div class="mrz-lines" id="mrzLines"></div>
+      <ul class="checks" id="checks" hidden></ul>
+    </div>
+  </section>
+
+  <main>
+    <section id="intake" class="intake">
+      <div id="dropzone" class="dropzone">
+        <p class="dropzone-title">Drop a passport photo page here</p>
+        <p class="dropzone-help">JPEG, PNG or WebP. Keep the page level, with the two lines of chevrons at the bottom sharp and inside the frame.</p>
+        <div class="dropzone-actions">
+          <button type="button" id="chooseFile" class="button primary">Choose an image</button>
+          <button type="button" id="trySpecimen" class="button">Try the specimen passport</button>
+        </div>
+        <input type="file" id="fileInput" accept="image/*" hidden>
+        <p id="intakeError" class="error" role="alert" hidden></p>
+      </div>
+    </section>
+
+    <section id="workbench" hidden>
+      <div class="status" id="status" role="status" aria-live="polite">
+        <span id="statusText"></span>
+        <progress id="progress" max="1" value="0" hidden></progress>
+      </div>
+
+      <div class="bench">
+        <div class="panel">
+          <h2>Your image</h2>
+          <canvas id="sourceCanvas" class="source-canvas" aria-label="Uploaded image with the photo crop frame"></canvas>
+          <div class="crop-controls">
+            <label for="cropSize">Photo frame size</label>
+            <input type="range" id="cropSize" min="5" max="100" step="1">
+            <p class="hint" id="cropHint">Drag the frame on the image to move it.</p>
+          </div>
+          <button type="button" id="another" class="button">Read another passport</button>
+        </div>
+
+        <div class="panel">
+          <h2>Summary card</h2>
+          <canvas id="cardCanvas" class="card-canvas" role="img" aria-label="Specimen summary card with the details read from the passport"></canvas>
+          <div class="actions">
+            <button type="button" id="downloadCard" class="button primary">Download PDF</button>
+            <button type="button" id="downloadDetails" class="button">Download details</button>
+          </div>
+        </div>
+      </div>
+
+      <form id="fields" class="fields" autocomplete="off">
+        <h2>Details</h2>
+        <p class="fields-help">Correct anything that was misread. The card updates as you type.</p>
+        <div class="field-grid">
+          <label>Surname <input type="text" name="surname"></label>
+          <label>Given names <input type="text" name="givenNames"></label>
+          <label>Passport number <input type="text" name="passportNumber" class="mono" maxlength="9"></label>
+          <label>Nationality code <input type="text" name="nationality" class="mono" maxlength="3"></label>
+          <label>Issuing state code <input type="text" name="issuingState" class="mono" maxlength="3"></label>
+          <label>Sex
+            <select name="sex">
+              <option value="M">Male</option>
+              <option value="F">Female</option>
+              <option value="X">Unspecified</option>
+            </select>
+          </label>
+          <label>Date of birth <input type="date" name="dateOfBirth"></label>
+          <label>Passport expires <input type="date" name="expiryDate"></label>
+        </div>
+        <h3>Trip notes, if you want them on the card</h3>
+        <div class="field-grid">
+          <label>Planned arrival <input type="date" name="plannedArrival"></label>
+          <label>Purpose of trip <input type="text" name="purpose" maxlength="24" placeholder="Holiday"></label>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <footer class="colophon">
+    <p>The card is stamped as a specimen on purpose. It summarises what was read from an image; it is not an official document, visa or travel authorisation, and the QR code holds only the same details as plain text.</p>
+  </footer>
+
+  <script src="vendor/tesseract/tesseract.min.js"></script>
+  <script src="vendor/qrcode.js"></script>
+  <script src="vendor/pico.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
